@@ -1,0 +1,91 @@
+# =====================================================================
+# CloudRestaurant - full stack orchestration
+#   db        : SQL Server 2022 (data store, compatible with SSMS 22)
+#   db-init   : applies schema.sql + seed.sql once the DB is up
+#   backend   : Node/Express REST API
+#   frontend  : React build served by Nginx (entry point on port 80)
+# =====================================================================
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cr-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:-YourStrong!Passw0rd}
+      MSSQL_PID: Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -No -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [cr-net]
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: cr-db-init
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:-YourStrong!Passw0rd}
+    volumes:
+      - ./database:/scripts
+    entrypoint: >
+      /bin/bash -c "
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$DB_PASSWORD\" -i /scripts/schema.sql &&
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$DB_PASSWORD\" -d CloudRestaurant -i /scripts/seed.sql &&
+      echo 'Database initialized.'"
+    networks: [cr-net]
+    restart: "no"
+
+  backend:
+    build: ./backend
+    container_name: cr-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-string}
+      JWT_EXPIRES_IN: 7d
+      DB_SERVER: db
+      DB_PORT: 1433
+      DB_NAME: CloudRestaurant
+      DB_USER: sa
+      DB_PASSWORD: ${DB_PASSWORD:-YourStrong!Passw0rd}
+      DB_ENCRYPT: "false"
+      DB_TRUST_SERVER_CERT: "true"
+      ADMIN_NAME: ${ADMIN_NAME:-Restaurant Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cloud.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+    expose:
+      - "5000"
+    ports:
+      - "5000:5000"
+    networks: [cr-net]
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: cr-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks: [cr-net]
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
+
+networks:
+  cr-net:
+    driver: bridge
