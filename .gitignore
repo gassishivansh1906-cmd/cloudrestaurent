@@ -31,3 +31,6 @@ Thumbs.db
 # AWS / deploy secrets
 *.pem
 deploy/*.key
+
+# Local setup artifacts
+scripts/setup-log.txt
