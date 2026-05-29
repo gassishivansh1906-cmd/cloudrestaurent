@@ -14,12 +14,12 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-echo ">>> Rebuilding and starting containers..."
-docker compose up -d --build
+echo ">>> Rebuilding and starting containers (production: frontend + backend, DB on RDS)..."
+docker compose -f docker-compose.prod.yml up -d --build
 
 echo ">>> Cleaning up old images..."
 docker image prune -f
 
 echo ">>> Current status:"
-docker compose ps
-echo ">>> Done. Frontend on :80, API on :5000."
+docker compose -f docker-compose.prod.yml ps
+echo ">>> Done. Frontend on :80."

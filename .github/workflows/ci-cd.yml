@@ -69,8 +69,12 @@ jobs:
             git fetch --all
             git reset --hard origin/main
 
-            # Write the production .env from GitHub secrets
+            # Write the production .env from GitHub secrets (EC2 + RDS)
             cat > .env <<EOF
+            DB_SERVER=${{ secrets.DB_SERVER }}
+            DB_PORT=1433
+            DB_NAME=CloudRestaurant
+            DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             CLIENT_ORIGIN=${{ secrets.CLIENT_ORIGIN }}
@@ -79,7 +83,6 @@ jobs:
             ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
             EOF
 
-            # Rebuild and restart the stack
-            docker compose pull || true
-            docker compose up -d --build
+            # Rebuild and restart the production stack (frontend + backend; DB is on RDS)
+            docker compose -f docker-compose.prod.yml up -d --build
             docker image prune -f

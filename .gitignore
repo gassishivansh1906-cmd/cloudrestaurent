@@ -34,3 +34,4 @@ deploy/*.key
 
 # Local setup artifacts
 scripts/setup-log.txt
+docker-compose.override.yml
